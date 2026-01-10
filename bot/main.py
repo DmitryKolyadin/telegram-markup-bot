@@ -12,6 +12,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.utils.markdown import html_decoration
+from aiogram import Router
 
 from core.parser import MarkdownParser
 from core.transformer import ASTTransformer
@@ -24,11 +25,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize dependencies
-# In a real serverless env, these might be initialized per request or cached globally
 parser = MarkdownParser()
 transformer = ASTTransformer()
 renderer = TelegramRenderer()
 splitter = MessageSplitter(renderer)
+
+router = Router()
 
 async def fetch_external_content(url: str) -> str | None:
     """Detects GitHub or Pastebin URLs and fetches raw content."""
@@ -134,23 +136,8 @@ def process_markdown(text: str) -> list[str]:
 
 async def main():
     # Helper for local running
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        logger.error("BOT_TOKEN is not set")
-        return
-        
-    bot = Bot(token=token)
-    dp = Dispatcher()
-    
-    # Register handlers
-    dp.include_router(router)
-    
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
-
-# Router setup (standard defined here for simplicity, or separate file)
-from aiogram import Router
-router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -284,6 +271,17 @@ async def handle_inline(inline_query: types.InlineQuery):
     except Exception as e:
         logger.error(f"Inline error: {e}")
         pass
+
+token = os.getenv("BOT_TOKEN")
+if not token:
+    logger.error("BOT_TOKEN is not set")
+    exit(1)
+        
+bot = Bot(token=token)
+dp = Dispatcher()
+
+# Register handlers
+dp.include_router(router)
 
 if __name__ == "__main__":
     asyncio.run(main())

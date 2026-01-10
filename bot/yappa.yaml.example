@@ -1,0 +1,30 @@
+project_name: tg-markup-bot
+project_slug: tg-markup-bot
+description: Telegram bot for rendering markdown with extended features
+requirements_file: requirements.txt
+bucket: null
+application_type: raw
+entrypoint: cloud.handler
+django_settings_module: null
+folder_id: <SECRET>
+gw_config: null
+manage_function_name: null
+runtime: python312
+memory_limit: 128MB
+timeout: 30
+service_account_names:
+  creator: yappa-creator-account-bots
+  function_actor: null
+excluded_paths:
+  - venv
+  - .git
+  - .idea
+  - .DS_Store
+  - .yc
+  - .vscode
+  - .gitignore
+  - .pytest_cache
+environment: { "BOT_TOKEN=": "<SECRET>" }
+named_service_accounts: {}
+service_account_id: <SECRET>
+is_public: true
