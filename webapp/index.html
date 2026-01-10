@@ -127,7 +127,7 @@
                 // Upload to dpaste.com (CORS-friendly and stable)
                 const params = new URLSearchParams();
                 params.append('content', content);
-                params.append('syntax', 'markdown');
+                params.append('syntax', 'text'); // Use plain text to avoid any validation errors
                 params.append('expiry_days', '7');
 
                 const response = await fetch('https://dpaste.com/api/v2/', {
@@ -145,6 +145,7 @@
                 } else {
                     const errText = await response.text();
                     console.error("Upload error:", errText);
+                    tg.showAlert("Upload failed: " + errText); // Show specific error to user
                     throw new Error("Upload failed");
                 }
             } catch (err) {
