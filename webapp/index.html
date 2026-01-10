@@ -124,23 +124,27 @@
             loader.style.display = 'block';
 
             try {
-                // Upload to paste.c-net.org (Simplest API, no validation)
-                const response = await fetch('https://paste.c-net.org/', {
+                // Upload to paste.rs (Very developer friendly, raw text, CORS supported)
+                const response = await fetch('https://paste.rs/', {
                     method: 'POST',
                     body: content
+                    // No headers needed, sends as text/plain
                 });
 
                 if (response.ok) {
                     let url = await response.text();
                     url = url.trim();
-                    // Returns just the URL: https://paste.c-net.org/XXXXX
+                    // Clean up URL if needed (sometimes returns http, force https)
+                    if (url.startsWith('http://')) {
+                        url = url.replace('http://', 'https://');
+                    }
                     
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.switchInlineQuery(url);
                 } else {
                     const errText = await response.text();
                     console.error("Upload error:", errText);
-                    tg.showAlert("Upload failed. Please try again.");
+                    tg.showAlert("Upload failed: " + response.status);
                     throw new Error("Upload failed");
                 }
             } catch (err) {
