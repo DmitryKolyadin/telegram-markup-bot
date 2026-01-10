@@ -124,26 +124,24 @@
             loader.style.display = 'block';
 
             try {
-                // Upload to paste.rs (Very developer friendly, raw text, CORS supported)
-                const response = await fetch('https://paste.rs/', {
+                // Upload to ix.io (CORS-friendly, minimal pastebin service)
+                const formData = new FormData();
+                formData.append('f:1', content);
+
+                const response = await fetch('https://ix.io', {
                     method: 'POST',
-                    body: content
-                    // No headers needed, sends as text/plain
+                    body: formData
                 });
 
                 if (response.ok) {
                     let url = await response.text();
                     url = url.trim();
-                    // Clean up URL if needed (sometimes returns http, force https)
-                    if (url.startsWith('http://')) {
-                        url = url.replace('http://', 'https://');
-                    }
+                    // ix.io returns just the URL
                     
                     tg.HapticFeedback.notificationOccurred('success');
                     tg.switchInlineQuery(url);
                 } else {
-                    const errText = await response.text();
-                    console.error("Upload error:", errText);
+                    console.error("Upload error:", response.status);
                     tg.showAlert("Upload failed: " + response.status);
                     throw new Error("Upload failed");
                 }
