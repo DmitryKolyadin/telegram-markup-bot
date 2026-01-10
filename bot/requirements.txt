@@ -1,7 +1,6 @@
 aiogram>=3.0.0
-markdown-it-py>=3.0.0
 yappa
-inkify-it-py[linkify]
+markdown-it-py[linkify,plugins]
 certifi
 dotenv
 PyYAML
