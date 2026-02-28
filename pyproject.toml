@@ -1,0 +1,11 @@
+[project]
+name = "telegram-markup-bot"
+version = "0.1.0"
+description = "Telegram bot for rendering Markdown as Telegram HTML"
+requires-python = ">=3.10"
+
+[tool.uv.workspace]
+members = ["md2tg", "bot"]
+
+[tool.uv.sources]
+md2tg = { workspace = true }

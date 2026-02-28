@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "telegram-markup-bot-app"
+version = "0.1.0"
+description = "Telegram bot for rendering Markdown as Telegram HTML"
+requires-python = ">=3.10"
+dependencies = [
+    "aiogram>=3.0.0",
+    "md2tg",
+    "certifi",
+    "aiohttp",
+]
+
+[tool.uv.sources]
+md2tg = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
