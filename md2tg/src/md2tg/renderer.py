@@ -87,12 +87,11 @@ class TelegramRenderer:
             elif isinstance(child, ListBlock):
                 # Nested list
                 # Increase level for nested list
-                 parts.append("\n" + self.render_block(child, list_level=current_level + 1))
-                 
+                parts.append("\n" + self.render_block(child, list_level=current_level + 1))
+
             else:
-                 # Other blocks inside list items (e.g. CodeBlock)
-                 # Should we support them?
-                 parts.append("\n" + self.render_block(child, list_level=current_level))
+                # Other blocks inside list items (e.g. CodeBlock)
+                parts.append("\n" + self.render_block(child, list_level=current_level))
                  
         return "".join(parts)
 

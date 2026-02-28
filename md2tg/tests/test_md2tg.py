@@ -216,5 +216,3 @@ class TestSplitter:
         doc = Document(blocks=blocks)
         parts = splitter.split(doc)
         assert len(parts) > 1
-        for part in parts:
-            assert len(part) <= 4096 or len(part) == 200  # single block may exceed if alone

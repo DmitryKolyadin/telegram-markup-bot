@@ -236,9 +236,9 @@ class ASTTransformer:
                     elif tag.startswith("</s>") or tag.startswith("</strike>") or tag.startswith("</del>"):
                         active_styles.discard("strikethrough")
                     elif tag.startswith("</b>") or tag.startswith("</strong>"):
-                         active_styles.discard("bold")
+                        active_styles.discard("bold")
                     elif tag.startswith("</i>") or tag.startswith("</em>"):
-                         active_styles.discard("italic")
+                        active_styles.discard("italic")
                 
                 else:
                     # Opening tag
