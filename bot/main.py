@@ -14,21 +14,12 @@ from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.utils.markdown import html_decoration
 from aiogram import Router
 
-from core.parser import MarkdownParser
-from core.transformer import ASTTransformer
-from core.renderer import TelegramRenderer
-from core.splitter import MessageSplitter
+from md2tg import convert
 from core.entity_converter import apply_entities
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Initialize dependencies
-parser = MarkdownParser()
-transformer = ASTTransformer()
-renderer = TelegramRenderer()
-splitter = MessageSplitter(renderer)
 
 router = Router()
 
@@ -129,10 +120,8 @@ async def fetch_external_content(url: str) -> str | None:
     return None
 
 def process_markdown(text: str) -> list[str]:
-    """Pipeline: Parser -> Transformer -> Splitter(Renderer)"""
-    tokens = parser.parse(text)
-    doc = transformer.transform(tokens)
-    return splitter.split(doc)
+    """Pipeline: Markdown → Telegram HTML parts (≤ 4096 chars each)."""
+    return convert(text)
 
 async def main():
     # Helper for local running
