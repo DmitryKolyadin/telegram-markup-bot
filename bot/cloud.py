@@ -5,7 +5,7 @@ import logging
 import traceback
 
 from aiogram import Bot, Dispatcher
-from .main import bot, dp
+from main import bot, dp
 
 logger = logging.getLogger(__name__)
 
