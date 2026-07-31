@@ -14,23 +14,41 @@ from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.utils.markdown import html_decoration
 from aiogram import Router
 
-from core.parser import MarkdownParser
-from core.transformer import ASTTransformer
-from core.renderer import TelegramRenderer
-from core.splitter import MessageSplitter
 from core.entity_converter import apply_entities
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize dependencies
-parser = MarkdownParser()
-transformer = ASTTransformer()
-renderer = TelegramRenderer()
-splitter = MessageSplitter(renderer)
-
 router = Router()
+
+TELEGRAM_API_BASE = "https://api.telegram.org"
+
+
+class RichMessageError(Exception):
+    """Raised when the Bot API rejects a sendRichMessage call."""
+
+
+async def send_rich_message(bot: Bot, chat_id: int, text: str) -> None:
+    """Send `text` as GFM markdown via the native sendRichMessage method.
+
+    aiogram doesn't know this method yet (added to Bot API after aiogram's
+    current release), so we call it directly over HTTP.
+    """
+    url = f"{TELEGRAM_API_BASE}/bot{bot.token}/sendRichMessage"
+    payload = {
+        "chat_id": chat_id,
+        "rich_message": {
+            "text": text,
+            "parse_mode": "markdown",
+        },
+    }
+    ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload, ssl=ssl_ctx, timeout=aiohttp.ClientTimeout(total=15)) as response:
+            data = await response.json()
+            if not data.get("ok"):
+                raise RichMessageError(data.get("description", "unknown error"))
 
 async def fetch_external_content(url: str) -> str | None:
     """Detects GitHub or Pastebin URLs and fetches raw content."""
@@ -128,12 +146,6 @@ async def fetch_external_content(url: str) -> str | None:
 
     return None
 
-def process_markdown(text: str) -> list[str]:
-    """Pipeline: Parser -> Transformer -> Splitter(Renderer)"""
-    tokens = parser.parse(text)
-    doc = transformer.transform(tokens)
-    return splitter.split(doc)
-
 async def main():
     # Helper for local running
     await bot.delete_webhook(drop_pending_updates=True)
@@ -141,34 +153,26 @@ async def main():
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer(
-        "👋 <b>Markdown Bot</b>\n\n"
-        "Send me any text with <b>Markdown</b> or upload a <code>.md</code> file.\n"
-        "I will render it to Telegram HTML messages.",
-        parse_mode="HTML"
+    await send_rich_message(
+        bot, message.chat.id,
+        "# Markdown Bot\n\n"
+        "Send me any text with **Markdown** or upload a `.md` file.\n"
+        "I will render it as a native Telegram rich message."
     )
 
 @router.message(F.text)
 async def handle_text(message: types.Message):
     if not message.text:
         return
-        
+
     try:
-        # Pre-process native Telegram entities into Markdown for parser
+        # Pre-process native Telegram entities into Markdown so formatting
+        # the user typed via the app's toolbar survives the round-trip.
         text_content = apply_entities(message.text, message.entities)
-        
-        parts = process_markdown(text_content)
-        if not parts:
-            await message.answer("⚠️ Result was empty.")
-            return
-            
-        for part in parts:
-            # We don't disable web_page_preview just in case links are important
-            # But usually for docs it's annoying. User didn't specify.
-            await message.answer(part, parse_mode="HTML")
-            
+        await send_rich_message(bot, message.chat.id, text_content)
+
     except Exception as e:
-        logger.exception("Error processing text")
+        logger.exception("Error sending rich message")
         await message.answer(f"❌ Processing error: {html_decoration.quote(str(e))}")
 
 @router.message(F.document)
@@ -187,23 +191,20 @@ async def handle_document(message: types.Message, bot: Bot):
 
     try:
         processing_msg = await message.answer("⏳ Downloading and processing...")
-        
+
         # Download
         file_io = BytesIO()
         await bot.download(doc, destination=file_io)
         content = file_io.getvalue().decode('utf-8')
-        
-        parts = process_markdown(content)
-        
+
+        await send_rich_message(bot, message.chat.id, content)
+
         await processing_msg.delete()
-        
-        for part in parts:
-            await message.answer(part, parse_mode="HTML")
-            
+
     except UnicodeDecodeError:
         await message.answer("❌ File encoding must be UTF-8.")
     except Exception as e:
-        logger.exception("Error processing file")
+        logger.exception("Error sending rich message")
         await message.answer(f"❌ Processing error: {html_decoration.quote(str(e))}")
 
 @router.inline_query()
@@ -236,36 +237,30 @@ async def handle_inline(inline_query: types.InlineQuery):
     
     # Note: inline queries don't pass entities.
     try:
-        parts = process_markdown(content_to_parse)
-        if not parts:
+        if not content_to_parse.strip():
             return
-            
-        # Inline mode only supports returning defined results. 
-        # We can't really send multiple messages for one inline result.
-        # So we just take the first part.
-        content = parts[0] 
-        # Add warning if truncated?
-        if len(parts) > 1:
-            content += "\n\n<i>(Content truncated...)</i>"
 
         result_id = hashlib.md5(text.encode()).hexdigest()
-        
+
         # Determine title/desc based on source
         title = "Render GitHub MD" if fetched_content else "Render Markdown"
         description = text if not fetched_content else "Fetched content from GitHub"
-        
+
+        # aiogram doesn't expose InputRichMessageContent yet (added to the
+        # Bot API after aiogram's current release), so inline results are
+        # sent as plain text for now; the raw markdown still shows up
+        # readable, just unformatted. Direct messages/files use
+        # send_rich_message() and get full native rich formatting.
         item = InlineQueryResultArticle(
             id=result_id,
             title=title,
             description=description,
             input_message_content=InputTextMessageContent(
-                message_text=content,
-                parse_mode="HTML",
-                # Disable web page preview because we just rendered the link content
+                message_text=content_to_parse,
                 disable_web_page_preview=True
             )
         )
-        
+
         await inline_query.answer([item], cache_time=0, is_personal=True)
         
     except Exception as e:
