@@ -12,12 +12,19 @@ from aiogram import Bot, Dispatcher, F, Router, types
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.filters import Command
-from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
+from aiogram.types import (
+    InlineQueryResultArticle,
+    InputRichMessage,
+    InputRichMessageContent,
+)
 from aiogram.utils.markdown import html_decoration
 from core.entity_converter import apply_entities
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 router = Router()
@@ -25,32 +32,12 @@ router = Router()
 TELEGRAM_API_BASE = os.environ.get("BOT_API", "https://api.telegram.org")
 
 
-class RichMessageError(Exception):
-    """Raised when the Bot API rejects a sendRichMessage call."""
-
-
 async def send_rich_message(bot: Bot, chat_id: int, text: str) -> None:
-    """Send `text` as GFM markdown via the native sendRichMessage method.
-
-    aiogram doesn't know this method yet (added to Bot API after aiogram's
-    current release), so we call it directly over HTTP.
-    """
-    url = f"{TELEGRAM_API_BASE}/bot{bot.token}/sendRichMessage"
-    payload = {
-        "chat_id": chat_id,
-        "rich_message": {
-            "text": text,
-            "parse_mode": "markdown",
-        },
-    }
-    ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url, json=payload, ssl=ssl_ctx, timeout=aiohttp.ClientTimeout(total=15)
-        ) as response:
-            data = await response.json()
-            if not data.get("ok"):
-                raise RichMessageError(data.get("description", "unknown error"))
+    """Send `text` as GFM markdown via aiogram's native sendRichMessage."""
+    await bot.send_rich_message(
+        chat_id=chat_id,
+        rich_message=InputRichMessage(markdown=text),
+    )
 
 
 async def fetch_external_content(url: str) -> str | None:
@@ -267,17 +254,12 @@ async def handle_inline(inline_query: types.InlineQuery):
         title = "Render GitHub MD" if fetched_content else "Render Markdown"
         description = text if not fetched_content else "Fetched content from GitHub"
 
-        # aiogram doesn't expose InputRichMessageContent yet (added to the
-        # Bot API after aiogram's current release), so inline results are
-        # sent as plain text for now; the raw markdown still shows up
-        # readable, just unformatted. Direct messages/files use
-        # send_rich_message() and get full native rich formatting.
         item = InlineQueryResultArticle(
             id=result_id,
             title=title,
             description=description,
-            input_message_content=InputTextMessageContent(
-                message_text=content_to_parse, disable_web_page_preview=True
+            input_message_content=InputRichMessageContent(
+                rich_message=InputRichMessage(markdown=content_to_parse)
             ),
         )
 
@@ -288,6 +270,8 @@ async def handle_inline(inline_query: types.InlineQuery):
         pass
 
 
+logger.info("Module import starting (BOT_API=%s)", TELEGRAM_API_BASE)
+
 token = os.getenv("BOT_TOKEN")
 if not token:
     logger.error("BOT_TOKEN is not set")
@@ -297,6 +281,7 @@ if not token:
 # directly from the hosting environment), route every aiogram call through
 # it too — not just our custom sendRichMessage call.
 if TELEGRAM_API_BASE != "https://api.telegram.org":
+    logger.info("Routing Bot API calls through proxy: %s", TELEGRAM_API_BASE)
     api_server = TelegramAPIServer.from_base(TELEGRAM_API_BASE)
     bot = Bot(token=token, session=AiohttpSession(api=api_server))
 else:
@@ -305,6 +290,8 @@ dp = Dispatcher()
 
 # Register handlers
 dp.include_router(router)
+
+logger.info("Module import finished, bot and dispatcher ready")
 
 if __name__ == "__main__":
     asyncio.run(main())
