@@ -9,6 +9,8 @@ from io import BytesIO
 import aiohttp
 import certifi
 from aiogram import Bot, Dispatcher, F, Router, types
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
 from aiogram.filters import Command
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from aiogram.utils.markdown import html_decoration
@@ -291,7 +293,14 @@ if not token:
     logger.error("BOT_TOKEN is not set")
     exit(1)
 
-bot = Bot(token=token)
+# If BOT_API is set (e.g. a proxy because api.telegram.org isn't reachable
+# directly from the hosting environment), route every aiogram call through
+# it too — not just our custom sendRichMessage call.
+if TELEGRAM_API_BASE != "https://api.telegram.org":
+    api_server = TelegramAPIServer.from_base(TELEGRAM_API_BASE)
+    bot = Bot(token=token, session=AiohttpSession(api=api_server))
+else:
+    bot = Bot(token=token)
 dp = Dispatcher()
 
 # Register handlers
