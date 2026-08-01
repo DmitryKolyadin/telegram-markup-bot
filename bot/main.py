@@ -17,7 +17,6 @@ from aiogram.types import (
     InputRichMessage,
     InputRichMessageContent,
 )
-from aiogram.utils.markdown import html_decoration
 from core.entity_converter import apply_entities
 
 # Configure logging
@@ -179,9 +178,9 @@ async def handle_text(message: types.Message):
         text_content = apply_entities(message.text, message.entities)
         await send_rich_message(bot, message.chat.id, text_content)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error sending rich message")
-        await message.answer(f"❌ Processing error: {html_decoration.quote(str(e))}")
+        await message.answer("❌ Processing error. Please try again later.")
 
 
 @router.message(F.document)
@@ -214,9 +213,9 @@ async def handle_document(message: types.Message, bot: Bot):
 
     except UnicodeDecodeError:
         await message.answer("❌ File encoding must be UTF-8.")
-    except Exception as e:
+    except Exception:
         logger.exception("Error sending rich message")
-        await message.answer(f"❌ Processing error: {html_decoration.quote(str(e))}")
+        await message.answer("❌ Processing error. Please try again later.")
 
 
 @router.inline_query()
